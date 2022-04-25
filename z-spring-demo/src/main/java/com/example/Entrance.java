@@ -21,8 +21,15 @@ import java.util.Arrays;
 @ComponentScan("com.example")
 @Configuration
 public class Entrance {
+
+	public static void main(String[] args) {
+		// test1();
+		// test2();
+		// test3();
+		test4();
+	}
 	/** 通过XML配置文件获取IoC容器 */
-	public static void main1(String[] args) {
+	public static void test1() {
 		System.out.println("hello world");
 		String xmlPath = "//home/jhmarryme/develop/code/spring-framework/z-spring-demo/src/main/resources/spring" +
 				"-config-test.xml";
@@ -35,7 +42,7 @@ public class Entrance {
 	}
 
 	/** 使用注解的方式获取容器 */
-	public static void main2(String[] args) {
+	public static void test2() {
 		// 创建容器实例, 告诉其解析Entrance这个配置类
 		AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext(Entrance.class);
 		// 打印所有的beanName
@@ -48,12 +55,12 @@ public class Entrance {
 		MyController myController = (MyController) applicationContext.getBean("myController");
 		myController.send("来自MyController的问候");
 
-		//
 		System.out.println(applicationContext.getBeanDefinition("myController").getSource());
 		System.out.println(Arrays.toString(applicationContext.getBeanDefinition("myController").attributeNames()));
 	}
 
-	public static void main(String[] args) {
+	/** 创建bean的几种方式 */
+	public static void test3() {
 		System.out.println("hello world");
 		String xmlPath = "//home/jhmarryme/develop/code/spring-framework/z-spring-demo/src/main/resources/spring" +
 				"-config-test.xml";
@@ -86,7 +93,7 @@ public class Entrance {
 	/**
 	 * 自定义BeanDefinition并查看其属性值
 	 */
-	public static void main4(String[] args) {
+	public static void test4() {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		context.register(Entrance.class);
 		GenericBeanDefinition beanDefinition = new GenericBeanDefinition();
