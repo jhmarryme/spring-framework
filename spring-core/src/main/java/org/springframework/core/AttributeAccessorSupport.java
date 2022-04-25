@@ -37,6 +37,7 @@ import org.springframework.util.StringUtils;
 @SuppressWarnings("serial")
 public abstract class AttributeAccessorSupport implements AttributeAccessor, Serializable {
 
+	// 用于存放属性键值对
 	/** Map with String keys and Object values. */
 	private final Map<String, Object> attributes = new LinkedHashMap<>();
 
@@ -82,6 +83,7 @@ public abstract class AttributeAccessorSupport implements AttributeAccessor, Ser
 	 * Copy the attributes from the supplied AttributeAccessor to this accessor.
 	 * @param source the AttributeAccessor to copy from
 	 */
+	// 内部使用，属性值的拷贝
 	protected void copyAttributesFrom(AttributeAccessor source) {
 		Assert.notNull(source, "Source must not be null");
 		String[] attributeNames = source.attributeNames();
@@ -91,6 +93,7 @@ public abstract class AttributeAccessorSupport implements AttributeAccessor, Ser
 	}
 
 
+	/** 重写equals方法，判断是否与别的属性类共用一个存储结构，即判断LinkedHashMap是否相等 */
 	@Override
 	public boolean equals(@Nullable Object other) {
 		return (this == other || (other instanceof AttributeAccessorSupport &&

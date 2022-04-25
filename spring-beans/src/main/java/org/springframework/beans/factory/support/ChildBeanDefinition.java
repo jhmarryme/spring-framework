@@ -46,10 +46,11 @@ import org.springframework.util.ObjectUtils;
 @SuppressWarnings("serial")
 public class ChildBeanDefinition extends AbstractBeanDefinition {
 
+	/** 父名称 */
 	@Nullable
 	private String parentName;
 
-
+	// 构造函数，必须设置一个父类
 	/**
 	 * Create a new ChildBeanDefinition for the given parent, to be
 	 * configured through its bean properties and configuration methods.
@@ -64,6 +65,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		this.parentName = parentName;
 	}
 
+	// 构造函数，设置父类和业务类属性
 	/**
 	 * Create a new ChildBeanDefinition for the given parent.
 	 * @param parentName the name of the parent bean
@@ -74,6 +76,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		this.parentName = parentName;
 	}
 
+	// 构造函数，设置父类，业务类构造函数的参数，业务类属性
 	/**
 	 * Create a new ChildBeanDefinition for the given parent.
 	 * @param parentName the name of the parent bean
@@ -87,6 +90,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		this.parentName = parentName;
 	}
 
+	// 构造函数，设置父类，业务类beanClass，业务类构造函数的参数，业务类属性
 	/**
 	 * Create a new ChildBeanDefinition for the given parent,
 	 * providing constructor arguments and property values.
@@ -103,6 +107,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		setBeanClass(beanClass);
 	}
 
+	// 构造函数，设置父类，业务类名称，业务类构造函数的参数，业务类属性
 	/**
 	 * Create a new ChildBeanDefinition for the given parent,
 	 * providing constructor arguments and property values.
@@ -120,6 +125,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		setBeanClassName(beanClassName);
 	}
 
+	// 构造函数，从另一个ChildBeanDefinition进行属性copy
 	/**
 	 * Create a new ChildBeanDefinition as deep copy of the given
 	 * bean definition.
@@ -141,6 +147,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		return this.parentName;
 	}
 
+	/** 校验，会发现，如果没有父类就会报错 */
 	@Override
 	public void validate() throws BeanDefinitionValidationException {
 		super.validate();
@@ -149,7 +156,7 @@ public class ChildBeanDefinition extends AbstractBeanDefinition {
 		}
 	}
 
-
+	/** 生成一个新的ChildBeanDefinition，并进行属性值复制 */
 	@Override
 	public AbstractBeanDefinition cloneBeanDefinition() {
 		return new ChildBeanDefinition(this);

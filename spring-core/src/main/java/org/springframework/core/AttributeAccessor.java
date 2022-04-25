@@ -18,6 +18,7 @@ package org.springframework.core;
 
 import org.springframework.lang.Nullable;
 
+// 定义用于附加和访问BeanDefinition元数据的通用的接口，来自任意对象
 /**
  * Interface defining a generic contract for attaching and accessing metadata
  * to/from arbitrary objects.
@@ -27,6 +28,7 @@ import org.springframework.lang.Nullable;
  */
 public interface AttributeAccessor {
 
+	//
 	/**
 	 * Set the attribute defined by {@code name} to the supplied {@code value}.
 	 * If {@code value} is {@code null}, the attribute is {@link #removeAttribute removed}.

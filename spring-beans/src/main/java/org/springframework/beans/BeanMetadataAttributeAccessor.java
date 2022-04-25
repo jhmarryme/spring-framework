@@ -44,11 +44,12 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 
 	@Override
 	@Nullable
+	// 获取源
 	public Object getSource() {
 		return this.source;
 	}
 
-
+	// 设置属性值，如果已经存在就覆盖，不存在就添加，BeanMetadataAttribute封装了键值对
 	/**
 	 * Add the given BeanMetadataAttribute to this accessor's set of attributes.
 	 * @param attribute the BeanMetadataAttribute object to register
@@ -57,6 +58,7 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 		super.setAttribute(attribute.getName(), attribute);
 	}
 
+	// 根据名字获取属性键值对的封装对象BeanMetadataAttribute
 	/**
 	 * Look up the given BeanMetadataAttribute in this accessor's set of attributes.
 	 * @param name the name of the attribute
@@ -68,11 +70,13 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 		return (BeanMetadataAttribute) super.getAttribute(name);
 	}
 
+	/** 设置属性值，name表示键，value表示值 */
 	@Override
 	public void setAttribute(String name, @Nullable Object value) {
 		super.setAttribute(name, new BeanMetadataAttribute(name, value));
 	}
 
+	/** 根据键获取属性值 */
 	@Override
 	@Nullable
 	public Object getAttribute(String name) {
@@ -80,6 +84,7 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 		return (attribute != null ? attribute.getValue() : null);
 	}
 
+	/** 移除属性值，并返回值，不存在就返回空 */
 	@Override
 	@Nullable
 	public Object removeAttribute(String name) {
