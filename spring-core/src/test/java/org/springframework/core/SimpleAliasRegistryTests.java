@@ -40,6 +40,19 @@ class SimpleAliasRegistryTests {
 		assertThat(registry.canonicalName("testAlias3")).isSameAs("test");
 	}
 
+	@Test
+	void testAliasChaningWithAliasCircle() {
+		SimpleAliasRegistry registry = new SimpleAliasRegistry();
+		registry.registerAlias("B", "A");
+		registry.registerAlias("C", "B");
+		registry.registerAlias("D", "C");
+		registry.registerAlias("E", "D");
+		try {
+			registry.registerAlias("A", "E");
+		} catch (IllegalStateException ignored) {
+		}
+	}
+
 	@Test  // SPR-17191
 	void testAliasChainingWithMultipleAliases() {
 		SimpleAliasRegistry registry = new SimpleAliasRegistry();

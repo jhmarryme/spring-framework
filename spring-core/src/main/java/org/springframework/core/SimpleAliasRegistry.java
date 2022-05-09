@@ -43,6 +43,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	/** Logger available to subclasses. */
 	protected final Log logger = LogFactory.getLog(getClass());
 
+	// 别名-规范名称的映射MAP，用于存储注册信息（内存注册表）
 	/** Map from alias to canonical name. */
 	private final Map<String, String> aliasMap = new ConcurrentHashMap<>(16);
 
@@ -52,6 +53,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 		Assert.hasText(name, "'name' must not be empty");
 		Assert.hasText(alias, "'alias' must not be empty");
 		synchronized (this.aliasMap) {
+			// 判断别名与规范名称是否一样, 如果一样, 在注册表中移除当前别名信息
 			if (alias.equals(name)) {
 				this.aliasMap.remove(alias);
 				if (logger.isDebugEnabled()) {
@@ -59,12 +61,15 @@ public class SimpleAliasRegistry implements AliasRegistry {
 				}
 			}
 			else {
+				// 获取当前别名在注册表中的规范名称
 				String registeredName = this.aliasMap.get(alias);
 				if (registeredName != null) {
+					// 若该alias已对应了一个name, 且与传入的name相同, 则无需操作
 					if (registeredName.equals(name)) {
 						// An existing alias - no need to re-register
 						return;
 					}
+					// 是否覆盖, 可配置
 					if (!allowAliasOverriding()) {
 						throw new IllegalStateException("Cannot define alias '" + alias + "' for name '" +
 								name + "': It is already registered for name '" + registeredName + "'.");
@@ -74,6 +79,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 								registeredName + "' with new target name '" + name + "'");
 					}
 				}
+				// 检查是否有循环引用
 				checkForAliasCircle(name, alias);
 				this.aliasMap.put(alias, name);
 				if (logger.isTraceEnabled()) {
@@ -98,6 +104,8 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @since 4.2.1
 	 */
 	public boolean hasAlias(String name, String alias) {
+		// 比如已有 A -> B -> C -> D -> E,
+		// 现在想让E -> A, 就会去判断指向E的那个D与A是否循环依赖, 如果没有继续找到指向D的那个C是否和A循环依赖, 一层一层找, 直到找到了B, 发现和A循环依赖了, 就报错了
 		for (Map.Entry<String, String> entry : this.aliasMap.entrySet()) {
 			String registeredName = entry.getValue();
 			if (registeredName.equals(name)) {
@@ -199,6 +207,8 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @see #hasAlias
 	 */
 	protected void checkForAliasCircle(String name, String alias) {
+		// 注意的是hasAlias的参数列表为(String name, String alias)
+		// 而这里传入的是alias, name, 交换了顺序的, 不能让 A -> B, 同时又B -> A
 		if (hasAlias(alias, name)) {
 			throw new IllegalStateException("Cannot register alias '" + alias +
 					"' for name '" + name + "': Circular reference - '" +
@@ -206,6 +216,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 		}
 	}
 
+	// 根据指定的别名获取规范名称, 若 A -> B, B -> C, C -> D, 则根据A可以得到D
 	/**
 	 * Determine the raw name, resolving aliases to canonical names.
 	 * @param name the user-specified name
