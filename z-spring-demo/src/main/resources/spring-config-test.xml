@@ -18,7 +18,7 @@
 	<!-- 需要先创建factoryBean对象，再通过factoryBean对象进行调用 -->
 	<bean id="userFactory" class="com.example.entity.factory.UserFactory"/>
 	<bean id="user3" factory-bean="userFactory" factory-method="getUser" scope="prototype" />
-<!--	<bean id="userFactoryBean" class="com.example."-->
+	<bean id="userFactoryBean" class="com.example.entity.factory.UserFactoryBean"/>
 
 	<bean id="user4" class="com.example.entity.abstractBeanDefinition.UserService">
 		<property name="name" value="valueFromXml"/>
