@@ -82,8 +82,10 @@ public class Entrance {
 		System.out.println("实例工厂创建的对象:"+user3a);
 		System.out.println("实例工厂创建的对象:"+user3b);
 
+		// 默认会调用userFactoryBean的getBean方法
 		User user4a = (User) applicationContext.getBean("userFactoryBean");
 		User user4b = (User) applicationContext.getBean("userFactoryBean");
+		// 如果要获取userFactoryBean本身, 需要在前面加上&, 具体定义在BeanFactory.FACTORY_BEAN_PREFIX
 		UserFactoryBean userfactoryBean = (UserFactoryBean) applicationContext.getBean("&userFactoryBean");
 		System.out.println("UserFactoryBean创建的对象:"+user4a);
 		System.out.println("UserFactoryBean创建的对象:"+user4b);

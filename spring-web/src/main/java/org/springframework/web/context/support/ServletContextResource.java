@@ -147,6 +147,7 @@ public class ServletContextResource extends AbstractFileResolvingResource implem
 		}
 	}
 
+	// 获取web应用程序上下文的资源二进制流
 	/**
 	 * This implementation delegates to {@code ServletContext.getResourceAsStream},
 	 * but throws a FileNotFoundException if no resource found.
