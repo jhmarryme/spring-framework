@@ -125,16 +125,21 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// the new (child) delegate with a reference to the parent for fallback purposes,
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
+		// BeanDefintion解析委托类
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
-
+		// 判断这个根节点是否是默认的命名空间，
+		// 底层就是判断这个根节点的nameSpaceUrl=="http://www.springframework.org/schema/beans"
 		if (this.delegate.isDefaultNamespace(root)) {
+			//获取这个profile属性的值，表示剖面，用于设置环境
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
+				// 根据分隔符换换成数组
 				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
 						profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);
 				// We cannot use Profiles.of(...) since profile expressions are not supported
 				// in XML config. See SPR-12458 for details.
+				// 判断这个切面是否是激活的环境，如果不是直接返回，表示这个配置文件不是当前运行环境的配置文件
 				if (!getReaderContext().getEnvironment().acceptsProfiles(specifiedProfiles)) {
 					if (logger.isDebugEnabled()) {
 						logger.debug("Skipped XML bean definition file due to specified profiles [" + profileSpec +
@@ -144,9 +149,11 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 				}
 			}
 		}
-
+		// 在解析xml之前做的准备工作，其实什么也没做
 		preProcessXml(root);
+		// 调用这个方法，解析
 		parseBeanDefinitions(root, this.delegate);
+		// 后续处理的
 		postProcessXml(root);
 
 		this.delegate = parent;
