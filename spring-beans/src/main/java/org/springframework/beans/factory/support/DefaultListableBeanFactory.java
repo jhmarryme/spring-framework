@@ -882,6 +882,12 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		}
 
 		// Trigger post-initialization callback for all applicable beans...
+		// bean已完全处理完了
+		// @EventListener标注的方法被DefaultEventListenerFactory包装成ApplicationListenerMethodAdapter
+		// @EventListener中的classes就是事件对象
+		// ApplicationListenerMethodApdapter注册到ApplicationContext中。
+		// 等待是事件源发布通知
+		// 通知后执行的逻辑就是标注@EventListener的方法的逻辑
 		for (String beanName : beanNames) {
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {

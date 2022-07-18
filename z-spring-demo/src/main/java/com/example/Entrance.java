@@ -24,9 +24,9 @@ public class Entrance {
 
 	public static void main(String[] args) {
 		// test1();
-		// test2();
+		test2();
 		// test3();
-		test4();
+		// test4();
 	}
 	/** 通过XML配置文件获取IoC容器 */
 	public static void test1() {
