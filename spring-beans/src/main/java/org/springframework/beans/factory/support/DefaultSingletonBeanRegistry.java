@@ -70,15 +70,18 @@ import org.springframework.util.StringUtils;
  */
 public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
 
-	// 存放singleton对象的缓存
+	// 一级缓存：单例对象缓存池，beanName -> Bean，其中存储的就是实例化，属性赋值成功之后的单例对象
 	/** Cache of singleton objects: bean name to bean instance. */
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
-	// 存放制造singleton的工厂对象的缓存
+	// 三级缓存：单例工厂的缓存，beanName -> ObjectFactory，添加进去的时候实例还未具备属性
+	// 用于保存beanName和创建bean的工厂之间的关系map，单例Bean在创建之初过早的暴露出去的Factory
+	// 为什么采用工厂方式，是因为有些Bean是需要被代理的，总不能把代理前的暴露出去那就毫无意义了
 	/** Cache of singleton factories: bean name to ObjectFactory. */
 	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 
-	// 存放singletonFactory 制造出来的 singleton 的缓存早期单例对象缓存
+	// 二级缓存：早期的单例对象，beanName->Bean，其中存储的是实例化之后，属性未赋值的单例对象
+	// 执行了工厂方法生产出来的Bean，bean被放进去之后，那么当bean在创建过程中，就可以通过getBean方法获取到
 	/** Cache of early singleton objects: bean name to bean instance. */
 	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
 
@@ -87,10 +90,12 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	private final Set<String> registeredSingletons = new LinkedHashSet<>(256);
 
 	// 存放目前正在创建中的单例bean的名称的集合
+	// spring使用三级缓存来解决循环依赖，而这个缓存就是用来检测是否存在循环依赖的
 	/** Names of beans that are currently in creation. */
 	private final Set<String> singletonsCurrentlyInCreation =
 			Collections.newSetFromMap(new ConcurrentHashMap<>(16));
 
+	// 直接缓存当前不能加载的bean
 	/** Names of beans currently excluded from in creation checks. */
 	private final Set<String> inCreationCheckExclusions =
 			Collections.newSetFromMap(new ConcurrentHashMap<>(16));
@@ -143,6 +148,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 */
 	protected void addSingleton(String beanName, Object singletonObject) {
 		synchronized (this.singletonObjects) {
+			// Bean实例完成创建之后，只保留一级缓存以及注册beanName的顺序，其余的清除
 			this.singletonObjects.put(beanName, singletonObject);
 			// beanName已被注册存放在singletonObjects缓存，那么singletonFactories不应该再持有名称为beanName的工厂
 			this.singletonFactories.remove(beanName);
@@ -165,8 +171,11 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		Assert.notNull(singletonFactory, "Singleton factory must not be null");
 		synchronized (this.singletonObjects) {
 			if (!this.singletonObjects.containsKey(beanName)) {
+				// 往三级缓存里添加
 				this.singletonFactories.put(beanName, singletonFactory);
+				// 清除此Bean在二级缓存里的缓存信息
 				this.earlySingletonObjects.remove(beanName);
+				// 这里为了记录注册单例的顺序
 				this.registeredSingletons.add(beanName);
 			}
 		}
@@ -188,22 +197,25 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
-		// 先从singletonObjects找, 找到直接就用了
+		// 尝试从一级缓存里singletonObjects获取完备的Bean
 		Object singletonObject = this.singletonObjects.get(beanName);
-		// 如果singletonObjects找不到, 判断是否处于创建中(singletonsCurrentlyInCreation中是否存在), 如果不存在返回null
+		// 如果完备的单例还没有创建出来，创建中的Bean的名字会被保存在singletonsCurrentlyInCreation中
+		// 因此看看是否正在创建
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			// 尝试给一级缓存对象加锁，因为接下来就要对缓存对象操作了
 			synchronized (this.singletonObjects) {
-				// 再从earlySingletonObjects找, 找到直接就用了
+				// 尝试从二级缓存earlySingletonObjects这个存储还没进行属性添加操作的Bean实例缓存中获取
 				singletonObject = this.earlySingletonObjects.get(beanName);
-				// 如果earlySingletonObjects找不到, 并且允许引用缓存, 则, 并
+				// 如果还没有获取到 并且第二个参数为true，为true则表示bean允许被循环引用
 				if (singletonObject == null && allowEarlyReference) {
-					// 从singletonFactories中取出singletonFactory创建一个对象
+					// 从三级缓存singletonFactories这个ObjectFactory实例的缓存里尝试获取创建此Bean的单例工厂实例
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
+						// 调用单例工厂的getObject方法返回对象实例
 						singletonObject = singletonFactory.getObject();
-						// 存入earlySingletonObjects
+						// 将实例放入二级缓存里
 						this.earlySingletonObjects.put(beanName, singletonObject);
-						// 删除singletonFactories中的singletonFactory
+						// 从三级缓存里移除
 						this.singletonFactories.remove(beanName);
 					}
 				}
