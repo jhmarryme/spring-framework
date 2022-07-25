@@ -170,6 +170,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	private final Map<String, RootBeanDefinition> mergedBeanDefinitions = new ConcurrentHashMap<>(256);
 
 	/** Names of beans that have already been created at least once. */
+	// 不管单例还是原型，均会被标记，主要用在循环依赖无法解决的时候擦屁股用的
 	private final Set<String> alreadyCreated = Collections.newSetFromMap(new ConcurrentHashMap<>(256));
 
 	/** Names of beans that are currently in creation. */
@@ -312,33 +313,33 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			try {
-				//将父类的BeanDefinition与子类的BeanDefinition进行合并覆盖
+				// 将父类的BeanDefinition与子类的BeanDefinition进行合并覆盖
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
-				//对合并的BeanDefinition做验证，主要看属性是否为abstract的
+				// 对合并的BeanDefinition做验证，主要看属性是否为abstract的
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
 				// 获取当前Bean所有依赖Bean的名称
 				String[] dependsOn = mbd.getDependsOn();
 				// 如果当前Bean设置了dependsOn的属性
-				//depends-on用来指定Bean初始化及销毁时的顺序
-				//<bean id=a Class="com.imooc.A" depends-on="b" />
-				// <bean id=b Class="com.imooc.B" />
+				// depends-on用来指定Bean初始化及销毁时的顺序
+				// <bean id=a Class="com.imooc.A" depends-on="b" />
+				//  <bean id=b Class="com.imooc.B" />
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
-						//校验该依赖是否已经注册给当前 bean,注意这里传入的key是当前的bean名称
-						//这里主要是判断是否有以下这种类型的依赖：
-						//<bean id="beanA" class="BeanA" depends-on="beanB">
-						//<bean id="beanB" class="BeanB" depends-on="beanA">
-						//如果有，则直接抛出异常
+						// 校验该依赖是否已经注册给当前 bean,注意这里传入的key是当前的bean名称
+						// 这里主要是判断是否有以下这种类型的依赖：
+						// <bean id="beanA" class="BeanA" depends-on="beanB">
+						// <bean id="beanB" class="BeanB" depends-on="beanA">
+						// 如果有，则直接抛出异常
 						if (isDependent(beanName, dep)) {
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
-						//缓存依赖调用，注意这里传入的key是被依赖的bean名称
+						// 缓存依赖调用，注意这里传入的key是被依赖的bean名称
 						registerDependentBean(dep, beanName);
 						try {
-							//递归调用getBean方法，注册Bean之间的依赖（如C需要晚于B初始化，而B需要晚于A初始化）
+							// 递归调用getBean方法，注册Bean之间的依赖（如C需要晚于B初始化，而B需要晚于A初始化）
 							// 初始化依赖的bean
 							getBean(dep);
 						}
@@ -350,9 +351,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 
 				// Create bean instance.
-				//如果BeanDefinition为单例
+				// 如果BeanDefinition为单例
 				if (mbd.isSingleton()) {
-					//这里使用了一个匿名内部类，创建Bean实例对象，并且注册给所依赖的对象
+					// 这里使用了一个匿名内部类，创建Bean实例对象，并且注册给所依赖的对象
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
 							return createBean(beanName, mbd, args);
@@ -373,28 +374,28 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 				else if (mbd.isPrototype()) {
 					// It's a prototype -> create a new instance.
-					//Prototype每次都会创建一个新的对象
+					// Prototype每次都会创建一个新的对象
 					Object prototypeInstance = null;
 					try {
-						//默认的功能是注册当前创建的prototype对象为正在创建中
+						// 默认的功能是注册当前创建的prototype对象为正在创建中
 						beforePrototypeCreation(beanName);
-						//创建原型对象实例
+						// 创建原型对象实例
 						prototypeInstance = createBean(beanName, mbd, args);
 					}
 					finally {
-						//默认的功能是将先前注册的正在创建中的Bean信息给抹除掉
+						// 默认的功能是将先前注册的正在创建中的Bean信息给抹除掉
 						afterPrototypeCreation(beanName);
 					}
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 
-				//要创建的Bean既不是单态模式，也不是原型模式，则根据Bean定义资源中
-				//配置的生命周期范围，选择实例化Bean的合适方法，这种在Web应用程序中
-				//比较常用，如：request、session、application等生命周期
+				// 要创建的Bean既不是单例模式，也不是原型模式，则根据Bean定义资源中
+				// 配置的生命周期范围，选择实例化Bean的合适方法，这种在Web应用程序中
+				// 比较常用，如：request、session、application等生命周期
 				else {
 					String scopeName = mbd.getScope();
 					final Scope scope = this.scopes.get(scopeName);
-					//Bean定义资源中没有配置生命周期范围，则Bean定义不合法
+					// Bean定义资源中没有配置生命周期范围，则Bean定义不合法
 					if (scope == null) {
 						throw new IllegalStateException("No Scope registered for scope name '" + scopeName + "'");
 					}
@@ -425,7 +426,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		}
 
 		// Check if required type matches the type of the actual bean instance.
-		//对创建的Bean实例对象进行类型检查
+		// 对创建的Bean实例对象进行类型检查
 		if (requiredType != null && !requiredType.isInstance(bean)) {
 			try {
 				T convertedBean = getTypeConverter().convertIfNecessary(bean, requiredType);
@@ -1755,12 +1756,23 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @param beanName the name of the bean
 	 */
 	protected void markBeanAsCreated(String beanName) {
+		// 双重检查锁机制
 		if (!this.alreadyCreated.contains(beanName)) {
 			synchronized (this.mergedBeanDefinitions) {
 				if (!this.alreadyCreated.contains(beanName)) {
 					// Let the bean definition get re-merged now that we're actually creating
 					// the bean... just in case some of its metadata changed in the meantime.
+					// 将原先合并之后的RootBeanDefinition的需要重新合并的状态设置为true
+					// 表示需要重新合并一遍，以防原数据的改动
+					// <bean id="parent" class="com.imooc.Parent">
+					//  <property name="name" value="ouyangfeng"/>
+					//  </bean>
+					//  <!--下面的parent表示这个child的bean的父亲是id=parent的这个类-->
+					//  <bean id="child" class="com.imooc.Child" parent="parent">
+					//  <property name="age" value="18"/>
+					//  </bean>
 					clearMergedBeanDefinition(beanName);
+					// 将已经创建好的或者正在创建的Bean的名称加到alreadyCreated这个缓存中
 					this.alreadyCreated.add(beanName);
 				}
 			}

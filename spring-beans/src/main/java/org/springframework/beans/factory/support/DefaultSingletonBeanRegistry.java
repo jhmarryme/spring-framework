@@ -118,9 +118,11 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	private final Map<String, Set<String>> containedBeanMap = new ConcurrentHashMap<>(16);
 
 	/** Map between dependent bean names: bean name to Set of dependent bean names. */
+	// dependentBeanMap(被依赖关系:key被value所依赖), A -> 所有引用了A的
 	private final Map<String, Set<String>> dependentBeanMap = new ConcurrentHashMap<>(64);
 
 	/** Map between depending bean names: bean name to Set of bean names for the bean's dependencies. */
+	// 依赖关系:key依赖于value, A -> 所有A引用的
 	private final Map<String, Set<String>> dependenciesForBeanMap = new ConcurrentHashMap<>(64);
 
 
@@ -150,11 +152,8 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		synchronized (this.singletonObjects) {
 			// Bean实例完成创建之后，只保留一级缓存以及注册beanName的顺序，其余的清除
 			this.singletonObjects.put(beanName, singletonObject);
-			// beanName已被注册存放在singletonObjects缓存，那么singletonFactories不应该再持有名称为beanName的工厂
 			this.singletonFactories.remove(beanName);
-			// beanName已被注册存放在singletonObjects缓存，那么earlySingletonObjects不应该再持有名称为beanName的bean
 			this.earlySingletonObjects.remove(beanName);
-			// beanName放进单例注册表中
 			this.registeredSingletons.add(beanName);
 		}
 	}
@@ -368,6 +367,8 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @see #isSingletonCurrentlyInCreation
 	 */
 	protected void beforeSingletonCreation(String beanName) {
+		// inCreationCheckExclusions 直接缓存当前不能加载的bean，
+		// 主要用在web容器的拦截器里，所以这里可以忽略，因为肯定是不存在的
 		if (!this.inCreationCheckExclusions.contains(beanName) && !this.singletonsCurrentlyInCreation.add(beanName)) {
 			throw new BeanCurrentlyInCreationException(beanName);
 		}
@@ -431,6 +432,10 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		String canonicalName = canonicalName(beanName);
 
 		synchronized (this.dependentBeanMap) {
+			// computeIfAbsent:若key对应的value为空，会将第二个参数的返回值存入并返回
+			// dependentBeanMap中存放着当前Bean被引用的Bean的集合
+			// 比如当前需要实例化的是Bean的名字是userInfo,userInfo中有个Human类型的属性human，
+			// 那么就有human被userInfo引用的关系 human=[userInfo]
 			Set<String> dependentBeans =
 					this.dependentBeanMap.computeIfAbsent(canonicalName, k -> new LinkedHashSet<>(8));
 			if (!dependentBeans.add(dependentBeanName)) {
@@ -438,6 +443,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			}
 		}
 
+		// dependenciesForBeanMap中存放的是当前Bean所依赖的Bean的集合
 		synchronized (this.dependenciesForBeanMap) {
 			Set<String> dependenciesForBean =
 					this.dependenciesForBeanMap.computeIfAbsent(dependentBeanName, k -> new LinkedHashSet<>(8));
