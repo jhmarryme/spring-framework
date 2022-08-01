@@ -325,6 +325,8 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	}
 
 	/**
+	 * Spring实现Bean代理的核心方法。wrapIfNecessary在两处会被调用，
+	 * 一处是getEarlyBeanReference，另一处是postProcessAfterInitialization
 	 * Wrap the given bean if necessary, i.e. if it is eligible for being proxied.
 	 * @param bean the raw bean instance
 	 * @param beanName the name of the bean

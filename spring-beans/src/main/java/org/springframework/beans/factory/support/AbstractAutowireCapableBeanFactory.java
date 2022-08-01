@@ -1000,6 +1000,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
+	 * 这个方法是spring的三级缓存中的其中一环，
+	 * 当你调用Object earlySingletonReference = getSingleton(beanName, false);时候就会触发，
+	 * 其实还有一个地方exposedObject = initializeBean(beanName, exposedObject, mbd) 也会触发导致返回一个代理对象
 	 * Obtain a reference for early access to the specified bean,
 	 * typically for the purpose of resolving a circular reference.
 	 * @param beanName the name of the bean (for error handling purposes)
@@ -1011,6 +1014,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Object exposedObject = bean;
 		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
+				// 如果是SmartInstantiationAwareBeanPostProcessor类型，就进行处理，
+				// 如果没有相关处理内容，就返回默认的实例。
+				// 里面的AbstractAutoProxyCreator类是后续AOP的关键
 				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
 					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
 					exposedObject = ibp.getEarlyBeanReference(exposedObject, beanName);
@@ -1439,6 +1445,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Give any InstantiationAwareBeanPostProcessors the opportunity to modify the
 		// state of the bean before properties are set. This can be used, for example,
 		// to support styles of field injection.
+		// 给InstantiationAwareBeanPostProcessors最后一次机会在属性注入前修改Bean的属性值，也可以控制是否继续填充Bean
+		// 具体通过调用postProcessAfterInstantiation方法，如果调用返回false,表示不必继续进行依赖注入，直接返回
+		// 主要是让用户可以自定义属性注入。比如用户实现一个 InstantiationAwareBeanPostProcessor 类型的后置处理器，
+		// 并通过 postProcessAfterInstantiation 方法向 bean 的成员变量注入自定义的信息。
 		boolean continueWithPropertyPopulation = true;
 
 		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
@@ -1452,28 +1462,37 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
-
+		// 如果上面设置 continueWithPropertyPopulation = false，表明用户可能已经自己填充了
+		// bean 的属性，不需要 Spring 帮忙填充了。此时直接返回即可
 		if (!continueWithPropertyPopulation) {
 			return;
 		}
-
+		// pvs是一个MutablePropertyValues实例，里面实现了PropertyValues接口，
+		// 提供属性的读写操作实现，同时可以通过调用构造函数实现深拷贝
+		// 获取BeanDefinition里面为Bean设置上的属性值
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
-
+		// 根据Bean配置的依赖注入方式完成注入，默认是0，即不走以下逻辑，所有的依赖注入都需要在xml文件中有显式的配置
+		// 如果设置了相关的依赖装配方式，会遍历Bean中的属性，根据类型或名称来完成相应注入，无需额外配置
 		int resolvedAutowireMode = mbd.getResolvedAutowireMode();
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
 			// Add property values based on autowire by name if applicable.
+			// 根据beanName进行autowiring自动装配处理
+			// <bean id="boyFriend" class="com.imooc.dao.impl.BoyFriend"  autowire="byName"></bean>
 			if (resolvedAutowireMode == AUTOWIRE_BY_NAME) {
 				autowireByName(beanName, mbd, bw, newPvs);
 			}
 			// Add property values based on autowire by type if applicable.
+			// 根据Bean的类型进行autowiring自动装配处理
+			// <bean id="boyFriend" class="com.imooc.dao.impl.BoyFriend"  autowire="byType"></bean>
 			if (resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 				autowireByType(beanName, mbd, bw, newPvs);
 			}
 			pvs = newPvs;
 		}
-
+		// 容器是否注册了InstantiationAwareBeanPostProcessor
 		boolean hasInstAwareBpps = hasInstantiationAwareBeanPostProcessors();
+		// 是否进行依赖检查，默认为false
 		boolean needsDepCheck = (mbd.getDependencyCheck() != AbstractBeanDefinition.DEPENDENCY_CHECK_NONE);
 
 		PropertyDescriptor[] filteredPds = null;
@@ -1484,11 +1503,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
 					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+					// 在这里会对@Autowired标记的属性进行依赖注入
 					PropertyValues pvsToUse = ibp.postProcessProperties(pvs, bw.getWrappedInstance(), beanName);
 					if (pvsToUse == null) {
 						if (filteredPds == null) {
 							filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 						}
+						// 对解析完但未设置的属性再进行处理
 						pvsToUse = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
 						if (pvsToUse == null) {
 							return;
@@ -1498,7 +1519,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
+		// 依赖检查，对应depend-on属性，3.0已经弃用此属性
 		if (needsDepCheck) {
+			// 过滤出所有需要进行依赖检查的属性编辑器
 			if (filteredPds == null) {
 				filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 			}
@@ -1506,6 +1529,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		if (pvs != null) {
+			// 最终将属性注入到Bean的Wrapper实例里，这里的注入主要是供
+			// 显式配置了autowiredbyName或者ByType的属性注入，
+			// 针对注解来讲，由于在AutowiredAnnotationBeanPostProcessor已经完成了注入，
+			// 所以此处不执行
 			applyPropertyValues(beanName, mbd, bw, pvs);
 		}
 	}
@@ -1899,7 +1926,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 */
 	protected void invokeInitMethods(String beanName, final Object bean, @Nullable RootBeanDefinition mbd)
 			throws Throwable {
-
+		// 如果当前bean是 InitializingBean类型的&&afterPropertiesSet这个方法没有注册为外部管理的初始化方法
+		// 就回调afterPropertiesSet方法
 		boolean isInitializingBean = (bean instanceof InitializingBean);
 		if (isInitializingBean && (mbd == null || !mbd.isExternallyManagedInitMethod("afterPropertiesSet"))) {
 			if (logger.isTraceEnabled()) {
@@ -1923,6 +1951,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		if (mbd != null && bean.getClass() != NullBean.class) {
 			String initMethodName = mbd.getInitMethodName();
+			// 如果设置了initMethod方法的话也会执行用户配置的初始话方法
+			// 并且这个类不是 InitializingBean类型和不是afterPropertiesSet方法 ；
+			// 才能执行用户配置的方法
+			// 样例<bean id="person" class="com.imooc.Person"  init-method="init" destroy-method="destory"/>
 			if (StringUtils.hasLength(initMethodName) &&
 					!(isInitializingBean && "afterPropertiesSet".equals(initMethodName)) &&
 					!mbd.isExternallyManagedInitMethod(initMethodName)) {
