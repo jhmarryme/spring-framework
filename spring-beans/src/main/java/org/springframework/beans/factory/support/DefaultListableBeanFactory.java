@@ -1217,6 +1217,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
 					descriptor, requestingBeanName);
 			if (result == null) {
+				// 解析依赖
 				result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
 			}
 			return result;
@@ -1229,12 +1230,15 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		InjectionPoint previousInjectionPoint = ConstructorResolver.setCurrentInjectionPoint(descriptor);
 		try {
+			// 该方法最终调用了 beanFactory.getBean(String, Class)，从容器中获取依赖
 			Object shortcut = descriptor.resolveShortcut(this);
+			// 如果容器缓存中存在所需依赖，这里进行短路路操作，提前结束依赖解析逻辑
 			if (shortcut != null) {
 				return shortcut;
 			}
 
 			Class<?> type = descriptor.getDependencyType();
+			// 处理 @value 注解
 			Object value = getAutowireCandidateResolver().getSuggestedValue(descriptor);
 			if (value != null) {
 				if (value instanceof String) {
@@ -1254,15 +1258,19 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 							converter.convertIfNecessary(value, type, descriptor.getMethodParameter()));
 				}
 			}
-
+			// 如果标识@Autowired注解的成员变量是复合类型，如Array,Collection,Map,
+			// 从这个方法获取@Autowired里的值
 			Object multipleBeans = resolveMultipleBeans(descriptor, beanName, autowiredBeanNames, typeConverter);
 			if (multipleBeans != null) {
 				return multipleBeans;
 			}
-
+			// 如果标识@Autowired注解的属性是非复合类型，
+			// 从这个方法获取@Autowired里的值
 			Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
 			if (matchingBeans.isEmpty()) {
+				// 没有找到，检验 @autowire  的 require 是否为 true
 				if (isRequired(descriptor)) {
+					// 如果 @autowire 的 require 属性为 true ，但是没有找到相应的匹配项，则抛出异常
 					raiseNoMatchingBeanFound(type, descriptor.getResolvableType(), descriptor);
 				}
 				return null;
@@ -1272,9 +1280,12 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			Object instanceCandidate;
 
 			if (matchingBeans.size() > 1) {
+				// 如果被@Autowired标记的有两个以上同样的类型，
+				// 就需要依据@Primary以及@Priority注解标签选择了
 				autowiredBeanName = determineAutowireCandidate(matchingBeans, descriptor);
 				if (autowiredBeanName == null) {
 					if (isRequired(descriptor) || !indicatesMultipleBeans(type)) {
+						// 无法选出唯一的，则直接报错
 						return descriptor.resolveNotUnique(descriptor.getResolvableType(), matchingBeans);
 					}
 					else {
@@ -1321,7 +1332,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) {
 
 		final Class<?> type = descriptor.getDependencyType();
-
+		// 首先是stream类型的处理
 		if (descriptor instanceof StreamDependencyDescriptor) {
 			Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
 			if (autowiredBeanNames != null) {
@@ -1335,6 +1346,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 			return stream;
 		}
+		// 判断要注入的是不是一个数组，可见除了集合注入外，也可以以数组的形式注入bean
 		else if (type.isArray()) {
 			Class<?> componentType = type.getComponentType();
 			ResolvableType resolvableType = descriptor.getResolvableType();
@@ -1363,6 +1375,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 			return result;
 		}
+		// 判断注入的是不是集合的接口类（List、Set等）
 		else if (Collection.class.isAssignableFrom(type) && type.isInterface()) {
 			Class<?> elementType = descriptor.getResolvableType().asCollection().resolveGeneric();
 			if (elementType == null) {
@@ -1386,6 +1399,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 			return result;
 		}
+		// 判断要注入的是不是map类
 		else if (Map.class == type) {
 			ResolvableType mapType = descriptor.getResolvableType().asMap();
 			Class<?> keyType = mapType.resolveGeneric(0);
@@ -1460,22 +1474,28 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	 */
 	protected Map<String, Object> findAutowireCandidates(
 			@Nullable String beanName, Class<?> requiredType, DependencyDescriptor descriptor) {
-
+		// 查找出所有符合类型的 beanName
 		String[] candidateNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 				this, requiredType, true, descriptor.isEager());
 		Map<String, Object> result = new LinkedHashMap<>(candidateNames.length);
+		// resolvableDependencies 记录了属性类型--值 的映射
 		for (Map.Entry<Class<?>, Object> classObjectEntry : this.resolvableDependencies.entrySet()) {
 			Class<?> autowiringType = classObjectEntry.getKey();
 			if (autowiringType.isAssignableFrom(requiredType)) {
 				Object autowiringValue = classObjectEntry.getValue();
+				// key值是我们需要的类型
+				// 但value可能是ObjectFactory，如果是就得调用它的 getObject() 来获取真正的bean.
 				autowiringValue = AutowireUtils.resolveAutowiringValue(autowiringValue, requiredType);
 				if (requiredType.isInstance(autowiringValue)) {
+					// 如果类型匹配，则塞入result
 					result.put(ObjectUtils.identityToString(autowiringValue), autowiringValue);
 					break;
 				}
 			}
 		}
+		// 遍历候选数组
 		for (String candidate : candidateNames) {
+			// 候选Bean不是自引用（即要注入的类不能是类本身，会触发无限递归注入）
 			if (!isSelfReference(beanName, candidate) && isAutowireCandidate(candidate, descriptor)) {
 				addCandidateEntry(result, candidate, descriptor, requiredType);
 			}
@@ -1511,7 +1531,10 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	 */
 	private void addCandidateEntry(Map<String, Object> candidates, String candidateName,
 			DependencyDescriptor descriptor, Class<?> requiredType) {
-
+		// 若@Autowired标识的是容器类型的属性，生成的依赖描述类型是MultiElementDescriptor ，
+		// 这种情况下，由于所有的候选对象均是合格的，会当场实例化他们。
+		// 而如果属性的类型非容器，那么可能是多个候选对象中挑一个，
+		// 此时实例化他们所有就不合适了，最终会把合格的那个实例化，如果没有合格的则不实例化，
 		if (descriptor instanceof MultiElementDescriptor) {
 			Object beanInstance = descriptor.resolveCandidate(candidateName, requiredType, this);
 			if (!(beanInstance instanceof NullBean)) {
@@ -1539,10 +1562,12 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	@Nullable
 	protected String determineAutowireCandidate(Map<String, Object> candidates, DependencyDescriptor descriptor) {
 		Class<?> requiredType = descriptor.getDependencyType();
+		// 根据@Primary注解标签来选择最优解
 		String primaryCandidate = determinePrimaryCandidate(candidates, requiredType);
 		if (primaryCandidate != null) {
 			return primaryCandidate;
 		}
+		// 根据@Order,@PriorityOrder，及实现Order接口的序号来选择最优解，选序号最小的
 		String priorityCandidate = determineHighestPriorityCandidate(candidates, requiredType);
 		if (priorityCandidate != null) {
 			return priorityCandidate;
@@ -1551,6 +1576,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		for (Map.Entry<String, Object> entry : candidates.entrySet()) {
 			String candidateName = entry.getKey();
 			Object beanInstance = entry.getValue();
+			// 如果通过以上两步都不能选出最优解，则:
+			// 如果这个类型已经由Spring注册过依赖关系对，则直接使用注册的对象，
+			// 候选者集合是LinkedHashMap,有序Map集合，容器注册的依赖对象位于LinkedHashMap的起始位置
+			// 如果没有注册过此类型的依赖关系，则根据属性的名称来匹配，
+			// 如果属性名称和某个候选者的Bean名称或别名一致，那么直接将此Bean作为最优解
 			if ((beanInstance != null && this.resolvableDependencies.containsValue(beanInstance)) ||
 					matchesBeanName(candidateName, descriptor.getDependencyName())) {
 				return candidateName;
@@ -1573,14 +1603,17 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		for (Map.Entry<String, Object> entry : candidates.entrySet()) {
 			String candidateBeanName = entry.getKey();
 			Object beanInstance = entry.getValue();
+			// 候选者可以是当前容器或者父容器内的标识了@Primary的Bean
 			if (isPrimary(candidateBeanName, beanInstance)) {
 				if (primaryBeanName != null) {
 					boolean candidateLocal = containsBeanDefinition(candidateBeanName);
 					boolean primaryLocal = containsBeanDefinition(primaryBeanName);
+					// 确保同一个容器中同一个类型的多个Bean最多只有一个Bean标识了@Primary
 					if (candidateLocal && primaryLocal) {
 						throw new NoUniqueBeanDefinitionException(requiredType, candidates.size(),
 								"more than one 'primary' bean found among candidates: " + candidates.keySet());
 					}
+					// 如果上一个@Primary的Bean是父容器的，则用当前容器的候选者覆盖之前的@Primary的Bean
 					else if (candidateLocal) {
 						primaryBeanName = candidateBeanName;
 					}
@@ -1615,12 +1648,14 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			if (beanInstance != null) {
 				Integer candidatePriority = getPriority(beanInstance);
 				if (candidatePriority != null) {
+					// 不能同时存在两个最高优先级的序号
 					if (highestPriorityBeanName != null) {
 						if (candidatePriority.equals(highestPriority)) {
 							throw new NoUniqueBeanDefinitionException(requiredType, candidates.size(),
 									"Multiple beans found with the same priority ('" + highestPriority +
 									"') among candidates: " + candidates.keySet());
 						}
+						// 使用优先级序号最小的Bean实例作为最优解
 						else if (candidatePriority < highestPriority) {
 							highestPriorityBeanName = candidateBeanName;
 							highestPriority = candidatePriority;

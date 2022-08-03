@@ -1549,11 +1549,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected void autowireByName(
 			String beanName, AbstractBeanDefinition mbd, BeanWrapper bw, MutablePropertyValues pvs) {
 
+		// 获取要注入的非简单类型的属性名称
 		String[] propertyNames = unsatisfiedNonSimpleProperties(mbd, bw);
 		for (String propertyName : propertyNames) {
+			// 检测是否存在与 propertyName 相关的 bean 或 BeanDefinition。
+			// 若存在，则调用 BeanFactory.getBean 方法获取 bean 实例
 			if (containsBean(propertyName)) {
+				// 从容器中获取相应的 bean 实例
 				Object bean = getBean(propertyName);
+				// 将解析出的 bean 存入到属性值列表pvs中
 				pvs.add(propertyName, bean);
+				// 注册依赖关系
 				registerDependentBean(propertyName, beanName);
 				if (logger.isTraceEnabled()) {
 					logger.trace("Added autowiring by name from bean name '" + beanName +
@@ -1583,34 +1589,46 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected void autowireByType(
 			String beanName, AbstractBeanDefinition mbd, BeanWrapper bw, MutablePropertyValues pvs) {
 
+		// 获取的属性类型转换器
 		TypeConverter converter = getCustomTypeConverter();
 		if (converter == null) {
 			converter = bw;
 		}
-
+		// 用来存放解析的要注入的属性名
 		Set<String> autowiredBeanNames = new LinkedHashSet<>(4);
+		// 获取要注入的属性名称（非简单属性（8种原始类型、字符、URL等都是简单属性））
 		String[] propertyNames = unsatisfiedNonSimpleProperties(mbd, bw);
 		for (String propertyName : propertyNames) {
 			try {
+				// 获取指定属性名称的属性Descriptor(Descriptor用来记载属性的getter setter type等情况)
 				PropertyDescriptor pd = bw.getPropertyDescriptor(propertyName);
 				// Don't try autowiring by type for type Object: never makes sense,
 				// even if it technically is a unsatisfied, non-simple property.
+				// 不对Object类型的属性进行装配注入，技术上没法实现，并且没有意义
+				// 即如果属性类型为 Object，则忽略，不做解析
 				if (Object.class != pd.getPropertyType()) {
+					// 获取属性的setter方法
 					MethodParameter methodParam = BeanUtils.getWriteMethodParameter(pd);
 					// Do not allow eager init for type matching in case of a prioritized post-processor.
+					// 对于继承了PriorityOrdered的post-processor，不允许立即初始化(热加载)
 					boolean eager = !PriorityOrdered.class.isInstance(bw.getWrappedInstance());
+					// 创建一个要被注入的依赖描述，方便提供统一的访问
 					DependencyDescriptor desc = new AutowireByTypeDependencyDescriptor(methodParam, eager);
+					// 根据容器的BeanDefinition解析依赖关系，返回所有要被注入的Bean实例
 					Object autowiredArgument = resolveDependency(desc, beanName, autowiredBeanNames, converter);
 					if (autowiredArgument != null) {
+						// 将解析出的 bean 存入到属性值列表pvs中
 						pvs.add(propertyName, autowiredArgument);
 					}
 					for (String autowiredBeanName : autowiredBeanNames) {
+						// 注册依赖关系
 						registerDependentBean(autowiredBeanName, beanName);
 						if (logger.isTraceEnabled()) {
 							logger.trace("Autowiring by type from bean name '" + beanName + "' via property '" +
 									propertyName + "' to bean named '" + autowiredBeanName + "'");
 						}
 					}
+					// 清除已注入属性的记录
 					autowiredBeanNames.clear();
 				}
 			}
@@ -1622,6 +1640,22 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 
 	/**
+	 * 获取非简单类型属性的名称，且该属性未被配置在配置文件中。
+	 * <bean class="org.springframework.aop.framework.ProxyFactoryBean">
+	 * 	 <property name="target">
+	 *		<ref parent="accountService"/>
+	 * 	 </property>
+	 * </bean>
+	 * Spring 认为的"简单类型"属性有哪些，如下：
+	 *   1. CharSequence 接口的实现类，比如 String
+	 *   2. Enum
+	 *   3. Date
+	 *   4. URI/URL
+	 *   5. Number 的继承类，比如 Integer/Long
+	 *   6. byte/short/int... 等基本类型
+	 *   7. Locale
+	 *   8. 以上所有类型的数组形式，比如 String[]、Date[]、int[] 等等
+	 * 除了要求非简单类型的属性外，还要求属性未在配置文件中配置过，也就是 pvs.contains(pd.getName()) = false。
 	 * Return an array of non-simple bean properties that are unsatisfied.
 	 * These are probably unsatisfied references to other beans in the
 	 * factory. Does not include simple properties like primitives or Strings.
