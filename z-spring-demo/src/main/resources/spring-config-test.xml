@@ -25,4 +25,7 @@
 	</bean>
 
 	<bean id="user5" class="com.example.entity.abstractBeanDefinition.User" parent="user4"/>
+
+	<bean id="classA" class="com.example.fortest.referncecircle.singleton.ClassA" autowire="byType"/>
+	<bean id="classB" class="com.example.fortest.referncecircle.singleton.ClassB" autowire="byType"/>
 </beans>

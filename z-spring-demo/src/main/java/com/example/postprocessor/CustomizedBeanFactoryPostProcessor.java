@@ -2,14 +2,14 @@ package com.example.postprocessor;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * @author JiaHao Wang
  * @date 2022/6/20 上午11:14
  */
-@Configuration
+@Component
 public class CustomizedBeanFactoryPostProcessor implements BeanPostProcessor {
 
 	@Override

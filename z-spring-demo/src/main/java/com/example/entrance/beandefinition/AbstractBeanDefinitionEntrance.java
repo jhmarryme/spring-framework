@@ -24,9 +24,9 @@ public class AbstractBeanDefinitionEntrance {
 		// test1();
 		// test1XmlConfig();
 		// test2();
-		// test2XmlConfig();
+		test2XmlConfig();
 		// test3();
-		test4();
+		// test4();
 	}
 
 	/** 使用rootBeanDefinition.getPropertyValues().add 向业务类的属性赋值 */
